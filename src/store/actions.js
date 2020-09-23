@@ -9,6 +9,7 @@ export default {
         commit('setConnected');
         Vue.prototype.$socket.sendObj('server.files.get_directory', { path: '/gcodes' }, 'getDirectoryRoot');
         Vue.prototype.$socket.sendObj('printer.info', {}, 'getKlipperInfo');
+        Vue.prototype.$socket.sendObj('machine.gpio_power.devices', {}, 'getPowerDevices');
     },
 
     socket_on_close ({ commit }, event) {
@@ -78,7 +79,7 @@ export default {
 
     getDirectoryRoot({ commit }, data) {
         if (data.files && data.files.filter((file) => file.filename === "gui.json")) {
-            fetch('http://'+store.state.socket.hostname+':'+store.state.socket.port+'/server/files/gcodes/gui.json?time='+Date.now())
+            fetch('//'+store.state.socket.hostname+':'+store.state.socket.port+'/server/files/gcodes/gui.json?time='+Date.now())
                 .then(res => res.json()).then(file => {
                 commit('setSettings', file);
             });
@@ -92,7 +93,7 @@ export default {
         let formData = new FormData();
         formData.append('file', file);
 
-        axios.post('http://' + state.socket.hostname + ':' + state.socket.port + '/server/files/upload',
+        axios.post('//' + state.socket.hostname + ':' + state.socket.port + '/server/files/upload',
             formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             }
@@ -202,6 +203,28 @@ export default {
 
     getHelpList({ commit }, data) {
         commit('setHelpList', data);
+    },
+
+    getPowerDevices({ commit }, data) {
+        if (data.error) {
+            if (data.error.code != -32601) {
+                Vue.$toast.error(data.error.message);
+            }
+        } else {
+            commit('setPowerDevices', data.devices);
+            
+            Vue.prototype.$socket.sendObj('machine.gpio_power.status', {}, 'getPowerDevicesStatus');
+        }
+    },
+
+    getPowerDevicesStatus({ commit }, data) {
+        if (data.error) {
+            if (data.error.code != -32601) {
+                Vue.$toast.error(data.error.message);
+            }
+        } else {
+            commit('setPowerDevicesStatus', data);
+        }
     },
 
     setHeaterChartVisibility({ commit, dispatch }, data) {
@@ -317,6 +340,10 @@ export default {
 
     responseBedMeshRemove({commit}) {
         commit('removeLoading', { name: 'bedMeshRemove' });
+    },
+
+    responsePowerToggle({ commit }, data) {
+        commit('setPowerDevicesStatus', data);
     },
 
     switchToDashboard() {
