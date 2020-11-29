@@ -13,9 +13,13 @@ export default class WebSocketClient {
         this.onMessage = null;
         this.onClose = null;
         this.onError = null;
-        this.blackErrorList = [
+        this.blacklistMessages = [
             "Metadata not available for",
             "Klippy Request Timed Out",
+            "Klippy Host not connected",
+        ];
+        this.blacklistFunctions = [
+            "getPowerDevices",
         ];
     }
 
@@ -27,7 +31,7 @@ export default class WebSocketClient {
     }
 
     passToStore (eventName, event) {
-        if (!eventName.startsWith('socket_')) { return }
+        if (!eventName.startsWith('socket/')) { return }
         let method = 'dispatch'
         let target = eventName
         let msg = event
@@ -41,20 +45,18 @@ export default class WebSocketClient {
         this.instance = new WebSocket(this.url);
 
         this.instance.onopen = () => {
-            if (this.store) this.passToStore('socket_on_open', event);
+            if (this.store) this.passToStore('socket/onOpen', event);
         };
 
         this.instance.onclose = (e) => {
-            window.console.log("Websocket Closed, reconnecting in "+this.reconnectInterval+"ms: ", e.reason);
-            this.passToStore('socket_on_close', e);
+            this.passToStore('socket/onClose', e);
 
             setTimeout(() => {
                 this.connect();
             }, this.reconnectInterval);
         };
 
-        this.instance.onerror = (err) => {
-            console.log("Websocket Error: ", err);
+        this.instance.onerror = () => {
             this.instance.close();
         };
 
@@ -64,7 +66,10 @@ export default class WebSocketClient {
                 if (this.wsData.filter(item => item.id === data.id).length > 0 &&
                     this.wsData.filter(item => item.id === data.id)[0].action !== "") {
                     if (data.error && data.error.message) {
-                        if (!this.blackErrorList.find(element => data.error.message.startsWith(element))) {
+                        if (
+                            !this.blacklistMessages.find(element => data.error.message.startsWith(element)) &&
+                            !this.blacklistFunctions.find(element => this.wsData.filter(item => item.id === data.id)[0].action.startsWith(element))
+                        ) {
                             window.console.error("Response Error: "+this.wsData.filter(item => item.id === data.id)[0].action+" > "+data.error.message);
                             this.store.dispatch(
                                 this.wsData.filter(item => item.id === data.id)[0].action,
@@ -72,26 +77,29 @@ export default class WebSocketClient {
                             );
                         }
                     } else {
-                        let result = data.result;
-                        if (result === "ok") result = { result: result };
+                        let result = data.result
+                        if (result === "ok") result = { result: result }
 
-                        this.store.dispatch(
-                            this.wsData.filter(item => item.id === data.id)[0].action,
-                            Object.assign({requestParams: this.wsData.filter(item => item.id === data.id)[0].params }, result)
-                        )
+                        let preload = {}
+                        let wsData = this.wsData.filter(item => item.id === data.id)[0]
+                        if (wsData.actionPreload) Object.assign(preload, wsData.actionPreload)
+                        Object.assign(preload, { requestParams: wsData.params })
+                        Object.assign(preload, result)
+                        this.store.dispatch(wsData.action, preload)
                     }
-                } else this.passToStore('socket_on_message', data)
+                } else this.passToStore('socket/onMessage', data)
             }
         };
     }
 
-    sendObj (method, params, action = '') {
+    sendObj (method, params, action = '', actionPreload = null) {
         if (this.instance.readyState === WebSocket.OPEN) {
             let id = Math.floor(Math.random() * 10000) + 1
             this.wsData.push({
                 id: id,
                 action: action,
-                params: params
+                params: params,
+                actionPreload: actionPreload,
             })
             this.instance.send(this.createMessage(method, params, id));
         }

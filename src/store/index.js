@@ -5,154 +5,27 @@ import actions from './actions'
 import mutations from './mutations'
 import getters from './getters'
 
+// load modules
+import socket from './socket'
+import server from './server'
+import printer from './printer'
+import files from './files'
+import gui from './gui'
+
 Vue.use(Vuex);
 Vue.use(VueToast);
 
 export default new Vuex.Store({
     state: {
-        socket: {
-            hostname: window.location.hostname,
-            port: window.location.port,
-            reconnectInterval: 3000,
-            isConnected: false,
-
-            loadingEmergencyStop: false,
-            loadingRestart: false,
-            loadingRestartFirmware: false,
-            loadingRebootHost: false,
-            loadingShutdownHost: false,
-            loadingSaveGuiConfig: false,
-            loadingEndstopStatus: false,
-        },
-        gui: {
-            general: {
-                printername: "",
-            },
-            dashboard: {
-                boolWebcam: true,
-                boolTempchart: true,
-                boolConsole: false,
-                hiddenMacros: [],
-                hiddenTempChart: [],
-            },
-            webcam: {
-                url: "",
-                rotate: false,
-                rotateDegrees: 90,
-                flipX: false,
-                flipY: false,
-                bool: false,
-            },
-            gcodefiles: {
-                countPerPage: 10,
-            },
-            settings: {
-                configfiles: {
-                    countPerPage: 10,
-                }
-            }
-        },
-        loadings: [],
-        config: {
-
-        },
-        printer: {
-            software_version: '',
-            hostname: '',
-            cpu_info: '',
-            webhooks: {
-                state: '',
-                state_message: '',
-            },
-            heaters: {
-                available_heaters: [],
-
-            },
-            toolhead: {
-                position: [],
-                homed_axes: "",
-                extruder: "",
-                status: "",
-                print_time: 0,
-                printing_time: 0,
-                estimated_print_time: 0,
-                max_velocity: 0,
-                max_accel: 0,
-                max_accel_to_decel: 0,
-                square_corner_velocity: 0,
-            },
-            pause_resume: {
-                is_paused: false
-            },
-            idle_timeout: {
-                printing_time: 0,
-                state: "",
-            },
-            display_status: {
-                message: null,
-                progress: 0,
-            },
-            virtual_sdcard: {
-                progress: 0,
-                is_active: false,
-                file_position: 0,
-            },
-            print_stats: {
-                print_duration: 0,
-                filament_used: 0,
-                total_duration: 0,
-                filename: "",
-                state: "",
-                message: ""
-            },
-            current_file: {
-
-            },
-            gcode_move: {
-                extrude_factor: 1,
-                speed_factor: 1,
-                homing_origin: [0,0,0,0],
-                absolute_coordinates: true,
-                absolute_extrude: true,
-                speed: 0,
-            },
-            /*fan: {
-                speed: 0,
-            },*/
-            endstops: {},
-            configfile: {
-                config: {}
-            }
-        },
-        object: [],
-        temperaturChart: [],
-        power: {
-            devices: []
-        },
-        helplist: [],
-        filetree: [
-            {
-                isDirectory: true,
-                filename: 'gcodes',
-                modified: new Date(),
-                childrens: []
-            },
-            {
-                isDirectory: true,
-                filename: 'config_examples',
-                modified: new Date(),
-                childrens: []
-            },
-            {
-                isDirectory: true,
-                filename: 'config',
-                modified: new Date(),
-                childrens: []
-            }
-        ],
-        events: []
+        packageVersion: process.env.PACKAGE_VERSION || '0.0.0',
     },
-
+    modules: {
+        socket,
+        server,
+        printer,
+        files,
+        gui,
+    },
     getters: getters,
     mutations: mutations,
     actions: actions

@@ -6,137 +6,123 @@
     .statusPanel-image-preview {
         width: 100%;
     }
+
+    .v-btn.minwidth-0 {
+        min-width: auto !important;
+    }
 </style>
 
 <template>
     <v-card>
-        <v-list-item>
-            <v-list-item-avatar color="grey"><v-icon dark>mdi-information-variant</v-icon></v-list-item-avatar>
-            <v-list-item-content>
-                <v-list-item-title class="headline">Status</v-list-item-title>
-                <v-list-item-subtitle class="mr-3">{{ printer_state !== "" ? printer_state.charAt(0).toUpperCase() + printer_state.slice(1) : "Unknown" }}{{ ['printing', 'paused', 'complete', 'error'].includes(printer_state) ? " - "+current_file : "" }}</v-list-item-subtitle>
-            </v-list-item-content>
-            <v-btn class="orange" v-if="printer_state === 'printing'" @click="btnPauseJob" :loading="loadingStatusPause">pause job</v-btn>
-            <v-btn class="red" v-if="(printer_state === 'paused')" :loading="loadingStatusCancel" @click="btnCancelJob">cancel job</v-btn>
-            <v-btn class="orange ml-2" v-if="(printer_state === 'paused')" :loading="loadingStatusResume" @click="btnResumeJob">resume job</v-btn>
-            <v-btn class="orange ml-2" v-if="(printer_state === 'error')" :loading="loadingStatusClear" @click="btnClearJob">clear job</v-btn>
-            <v-btn class="primary ml-2" v-if="(printer_state === 'complete')" :loading="loadingStatusReprint" @click="btnReprintJob">reprint job</v-btn>
-        </v-list-item>
-        <v-divider class="my-2" ></v-divider>
+        <v-toolbar flat dense>
+            <v-toolbar-title>
+                <span class="subheading align-baseline">
+                    <v-icon left>mdi-information</v-icon>{{ (printer_state !== "" ? printer_state.charAt(0).toUpperCase() + printer_state.slice(1) : "Unknown") }}
+                </span>
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-item-group class="v-btn-toggle" name="controllers">
+                <v-btn small class="px-2 minwidth-0" color="orange" v-if="printer_state === 'printing'" @click="btnPauseJob" :loading="loadings.includes('statusPrintPause')" title="Pause print"><v-icon small>mdi-pause</v-icon></v-btn>
+                <v-btn small class="px-2 minwidth-0" color="red" v-if="(printer_state === 'paused')" :loading="loadings.includes('statusPrintCancel')" @click="btnCancelJob" title="Cancel print"><v-icon small>mdi-stop</v-icon></v-btn>
+                <v-btn small class="px-2 minwidth-0" color="orange" v-if="(printer_state === 'paused')" :loading="loadings.includes('statusPrintResume')" @click="btnResumeJob" title="Resume job"><v-icon small>mdi-play</v-icon></v-btn>
+                <v-btn small class="px-2 minwidth-0" color="orange" v-if="(printer_state === 'error')" :loading="loadings.includes('statusPrintClear')" @click="btnClearJob" title="Clear job"><v-icon small>mdi-close</v-icon></v-btn>
+                <v-btn small class="px-2 minwidth-0" color="primary" v-if="(printer_state === 'complete')" :loading="loadings.includes('statusPrintReprint')" @click="btnReprintJob" title="Reprint job"><v-icon small>mdi-autorenew</v-icon></v-btn>
+            </v-item-group>
+        </v-toolbar>
+        <v-row v-if="current_filename" class="mx-0">
+            <v-col class="col-auto py-3 pr-0">
+                <v-progress-circular
+                    :rotate="-90"
+                    :size="50"
+                    :width="7"
+                    :value="printPercent * 100"
+                    color="red"
+                >
+                </v-progress-circular>
+            </v-col>
+            <v-col class="col py-3" style="width: 100px;">
+                <h3 class="font-weight-regular">{{ Math.round(printPercent * 100)+"%" }}{{ display_message ? " - "+display_message : "" }}</h3>
+                <span class="subtitle-2 text-truncate d-block px-0 text--disabled"><v-icon small class="mr-1">mdi-file-outline</v-icon>{{ current_filename }}</span>
+            </v-col>
+        </v-row>
+        <v-divider class="mt-0 mb-0" ></v-divider>
         <v-card-text class="px-0 pt-0 pb-2 content">
             <v-row>
                 <v-col
-                    class="col-12 pv-0 col-sm-4 pr-sm-0"
+                    class="col-12 col-sm-4 pl-sm-3 pt-0 pr-sm-0 pb-0"
                     v-if="
                         ['printing', 'paused', 'complete'].includes(printer_state) &&
-                        current_file_metadata &&
-                        current_file_metadata.thumbnails &&
-                        current_file_metadata.thumbnails.length &&
-                        current_file_metadata.thumbnails.find(element => element.width === 400)
+                        current_file &&
+                        current_file.thumbnails &&
+                        current_file.thumbnails.length &&
+                        current_file.thumbnails.find(element => element.width === 400)
                     ">
                     <img
                         class="statusPanel-image-preview"
-                        :src="'data:image/gif;base64,'+(current_file_metadata.thumbnails ? current_file_metadata.thumbnails.find(element => element.width === 400).data : '')"
+                        :src="'data:image/gif;base64,'+(current_file.thumbnails ? current_file.thumbnails.find(element => element.width === 400).data : '')"
                     />
                 </v-col>
                 <v-col
                     :class="
                         (['printing', 'paused', 'complete'].includes(printer_state) &&
-                        current_file_metadata &&
-                        current_file_metadata.thumbnails &&
-                        current_file_metadata.thumbnails.length &&
-                        current_file_metadata.thumbnails.find(element => element.width === 400)) ? 'col-12 pv-0 col-sm-8 pl-sm-0' : 'col-12 pv-0'
+                        current_file &&
+                        current_file.thumbnails &&
+                        current_file.thumbnails.length &&
+                        current_file.thumbnails.find(element => element.width === 400 || element.width === 300)) ? 'col-12 py-0 col-sm-8 pl-sm-0' : 'col-12 py-0'
                     ">
-                    <v-layout wrap class=" text-center" v-if="display_message">
-                        <v-flex col tag="strong" class="category-header">Message</v-flex>
-                        <v-flex grow class="equal-width text-left vertical_align_center">
-                            <v-flex tag="span">{{ display_message }}</v-flex>
-                        </v-flex>
-                    </v-layout>
-                    <v-divider class="my-2" v-if="display_message" ></v-divider>
-                    <v-layout wrap class=" text-center">
-                        <v-flex col tag="strong" class="category-header">
-                            Position
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">X</v-flex>
-                                <v-flex tag="span">{{ position.length ? position[0].toFixed(2) : "--" }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Y</v-flex>
-                                <v-flex tag="span">{{ position.length ? position[1].toFixed(2) : "--" }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Z</v-flex>
-                                <v-flex tag="span">{{ position.length ? position[2].toFixed(2) : "--" }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                    </v-layout>
+                    <v-row class="text-center pt-2" align="center">
+                        <v-col class="py-0 flex-grow-0 pl-8 pr-3">
+                            <v-icon>mdi-axis-arrow</v-icon>
+                        </v-col>
+                        <v-col class="equal-width py-0">
+                            <v-row><v-col class="px-0 py-0"><strong>X</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ position.length ? position[0].toFixed(2) : "--" }}</v-col></v-row>
+                        </v-col>
+                        <v-col class="equal-width py-0">
+                            <v-row><v-col class="px-0 py-0"><strong>Y</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ position.length ? position[1].toFixed(2) : "--" }}</v-col></v-row>
+                        </v-col>
+                        <v-col class="equal-width py-0 pr-sm-6">
+                            <v-row><v-col class="px-0 py-0"><strong>Z</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ position.length ? position[2].toFixed(2) : "--" }}</v-col></v-row>
+                        </v-col>
+                    </v-row>
                     <v-divider class="my-2" v-if="['printing', 'paused', 'complete', 'error'].includes(printer_state)"></v-divider>
-                    <v-layout wrap class=" text-center" v-if="['printing', 'paused', 'complete', 'error'].includes(printer_state)">
-                        <v-flex col tag="strong" class="category-header">
-                            Print Status
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Filament used</v-flex>
-                                <v-flex tag="span">{{ filament_used > 1000 ? (filament_used / 1000).toFixed(2)+"m" : filament_used.toFixed(2)+"mm" }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Print Time</v-flex>
-                                <v-flex tag="span">{{ formatTime(print_time) }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Total Time</v-flex>
-                                <v-flex tag="span">{{ formatTime(print_time_total) }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                    </v-layout>
+                    <v-row class="text-center" align="center" v-if="['printing', 'paused', 'complete', 'error'].includes(printer_state)">
+                        <v-col class="py-0 flex-grow-0 pl-8 pr-3">
+                            <v-icon>mdi-poll</v-icon>
+                        </v-col>
+                        <v-col class="equal-width py-0">
+                            <v-row><v-col class="px-0 py-0"><strong>Filament</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ filament_used > 1000 ? (filament_used / 1000).toFixed(2)+"m" : filament_used.toFixed(2)+"mm" }}</v-col></v-row>
+                        </v-col>
+                        <v-col class="equal-width py-0">
+                            <v-row><v-col class="px-0 py-0"><strong>Print</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ formatTime(print_time) }}</v-col></v-row>
+                        </v-col>
+                        <v-col class="equal-width py-0 pr-sm-6">
+                            <v-row><v-col class="px-0 py-0"><strong>Total</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ formatTime(print_time_total) }}</v-col></v-row>
+                        </v-col>
+                    </v-row>
                     <v-divider class="my-2" v-if="['printing', 'paused', 'error'].includes(printer_state)"></v-divider>
-                    <v-layout wrap class=" text-center" v-if="['printing', 'paused', 'error'].includes(printer_state)">
-                        <v-flex col tag="strong" class="category-header py-0">
-                            Estimations<br />based on
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">File</v-flex>
-                                <v-flex tag="span">{{ print_time > 0 && printProgress > 0 ? formatTime(print_time / printProgress - print_time) : '--' }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Filament</v-flex>
-                                <v-flex tag="span">{{ (filament_used > 0 && current_file_filament_total > filament_used) ? formatTime(print_time / (filament_used / current_file_filament_total) - print_time) : '--' }}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                        <v-flex grow class="equal-width">
-                            <v-layout column>
-                                <v-flex tag="strong">Slicer</v-flex>
-                                <v-flex tag="span">{{ current_file_estimated_time > print_time ? formatTime(current_file_estimated_time - print_time) : '--'}}</v-flex>
-                            </v-layout>
-                        </v-flex>
-                    </v-layout>
-                    <v-layout wrap class=" text-center" v-if="['printing', 'paused', 'error'].includes(printer_state)">
-                        <v-layout column class="mt-2" >
-                            <v-progress-linear
-                                :value="printProgress * 100"
-                                height="25"
-                            >
-                                <template>
-                                    <strong>{{ Math.ceil(printProgress * 100) }}%</strong>
-                                </template>
-                            </v-progress-linear>
-                        </v-layout>
-                    </v-layout>
+                    <v-row class="text-center" align="center" v-if="['printing', 'paused', 'error'].includes(printer_state)">
+                        <v-col class="py-0 flex-grow-0 pl-8 pr-3">
+                            <v-icon>mdi-clock-outline</v-icon>
+                        </v-col>
+                        <v-col class="equal-width py-0">
+                            <v-row><v-col class="px-0 py-0"><strong>File</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ print_time > 0 && printPercent > 0 ? formatTime(print_time / printPercent - print_time) : '--' }}</v-col></v-row>
+                        </v-col>
+                        <v-col class="equal-width py-0">
+                            <v-row><v-col class="px-0 py-0"><strong>Filament</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ (filament_used > 0 && 'filament_total' in current_file && current_file.filament_total > filament_used) ? formatTime(print_time / (filament_used / current_file.filament_total) - print_time) : '--' }}</v-col></v-row>
+                        </v-col>
+                        <v-col class="equal-width py-0 pr-sm-6">
+                            <v-row><v-col class="px-0 py-0"><strong>Slicer</strong></v-col></v-row>
+                            <v-row><v-col class="px-0 py-0">{{ 'estimated_time' in current_file && current_file.estimated_time > print_time ? formatTime(current_file.estimated_time - print_time) : '--'}}</v-col></v-row>
+                        </v-col>
+                    </v-row>
                 </v-col>
             </v-row>
         </v-card-text>
@@ -144,67 +130,58 @@
 </template>
 
 <script>
-    import { mapState, mapGetters } from 'vuex';
+    import { mapState } from 'vuex';
 
     export default {
         data: function() {
             return {
-                loadingStatusCancel: false,
-                loadingStatusResume: false,
-                loadingStatusPause: false,
-                loadingStatusClear: false,
-                loadingStatusReprint: false,
+
             }
         },
         computed: {
             ...mapState({
                 toolhead: state => state.printer.toolhead,
                 position: state => state.printer.toolhead.position,
-                loadings: state => state.loadings,
-
-                estimated_print_time: state => state.printer.toolhead.estimated_print_time,
 
                 printProgress: state => state.printer.virtual_sdcard.progress,
                 file_position: state => state.printer.virtual_sdcard.file_position,
+                current_file: state => state.printer.current_file,
 
                 print_time: state => state.printer.print_stats.print_duration,
                 print_time_total: state => state.printer.print_stats.total_duration,
                 filament_used: state => state.printer.print_stats.filament_used,
-                current_file: state => state.printer.print_stats.filename,
+                current_filename: state => state.printer.print_stats.filename,
                 printer_state: state => state.printer.print_stats.state,
-                klippy_state: state => state.printer.webhooks.state,
-                klippy_state_message: state => state.printer.webhooks.state_message,
 
                 display_message: state => state.printer.display_status.message,
+                loadings: state => state.socket.loadings,
             }),
-
-            ...mapGetters([
-                'current_file_size',
-                'current_file_metadata',
-                'current_file_estimated_time',
-                'current_file_filament_total',
-            ]),
+            printPercent: {
+                get() {
+                    return this.$store.getters["printer/getPrintPercent"];
+                }
+            }
         },
         methods: {
             btnPauseJob() {
-                this.$store.commit('setLoading', { name: 'statusPrintPause' });
-                this.$socket.sendObj('printer.print.pause', { }, 'respondPrintPause');
+                this.$store.commit('socket/addLoading', { name: 'statusPrintPause' });
+                this.$socket.sendObj('printer.print.pause', { }, 'socket/removeLoading', { name: 'statusPrintPause' });
             },
             btnResumeJob() {
-                this.$store.commit('setLoading', { name: 'statusPrintResume' });
-                this.$socket.sendObj('printer.print.resume', { }, 'respondPrintResume');
+                this.$store.commit('socket/addLoading', { name: 'statusPrintResume' });
+                this.$socket.sendObj('printer.print.resume', { }, 'socket/removeLoading', { name: 'statusPrintResume' });
             },
             btnCancelJob() {
-                this.$store.commit('setLoading', { name: 'statusPrintCancel' });
-                this.$socket.sendObj('printer.print.cancel', { }, 'respondPrintCancel');
+                this.$store.commit('socket/addLoading', { name: 'statusPrintCancel' });
+                this.$socket.sendObj('printer.print.cancel', { }, 'socket/removeLoading', { name: 'statusPrintCancel' });
             },
             btnClearJob() {
-                this.$store.commit('setLoading', {name: 'statusPrintClear'});
-                this.$socket.sendObj('printer.gcode.script', {script: 'SDCARD_RESET_FILE'}, 'respondPrintClear');
+                this.$store.commit('socket/addLoading', {name: 'statusPrintClear'});
+                this.$socket.sendObj('printer.gcode.script', {script: 'SDCARD_RESET_FILE'}, 'socket/removeLoading', { name: 'statusPrintClear' });
             },
             btnReprintJob() {
-                this.$store.commit('setLoading', {name: 'statusPrintReprint'});
-                this.$socket.sendObj('printer.print.start', { filename: this.current_file }, 'respondPrintReprint');
+                this.$store.commit('socket/addLoading', {name: 'statusPrintReprint'});
+                this.$socket.sendObj('printer.print.start', { filename: this.current_filename }, 'socket/removeLoading', { name: 'statusPrintReprint' });
             },
             formatTime(seconds) {
                 let h = Math.floor(seconds / 3600);
@@ -214,15 +191,6 @@
 
                 return h+':'+m+':'+s;
             },
-        },
-        watch: {
-            loadings: function(loadings) {
-                this.loadingStatusCancel = loadings.includes('statusPrintCancel');
-                this.loadingStatusResume = loadings.includes('statusPrintResume');
-                this.loadingStatusPause = loadings.includes('statusPrintPause');
-                this.loadingStatusClear = loadings.includes('statusPrintClear');
-                this.loadingStatusReprint = loadings.includes('statusPrintReprint');
-            }
         }
     }
 </script>

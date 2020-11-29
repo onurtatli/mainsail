@@ -1,48 +1,58 @@
 <style>
 
     .minievent-table {
-        max-height: 250px;
+        max-height: 350px;
         overflow-y: auto;
+    }
+
+    .miniConsole .title-cell {
+        white-space: nowrap;
+    }
+
+    .miniConsole.v-data-table > .v-data-table__wrapper > table > tbody > tr > td {
+        height: auto;
+    }
+
+    .miniConsole .content-cell {
+        width: 100%;
     }
 </style>
 
 <template>
     <v-card>
-        <v-list-item>
-            <v-list-item-avatar color="grey"><v-icon dark>mdi-console-line</v-icon></v-list-item-avatar>
-            <v-list-item-content>
-                <v-list-item-title class="headline">Console</v-list-item-title>
-            </v-list-item-content>
-        </v-list-item>
-        <v-divider class="mt-2"></v-divider>
+        <v-toolbar flat dense>
+            <v-toolbar-title>
+                <span class="subheading"><v-icon left>mdi-console-line</v-icon>Console</span>
+            </v-toolbar-title>
+        </v-toolbar>
         <v-card-text class="px-0 py-0 content">
-                <v-data-table
-                        :headers="headers"
-                        :options="options"
-                        :items="events"
-                        item-key="date"
-                        hide-default-footer
-                        hide-default-header
-                        disable-pagination
-                        class="minievent-table"
-                        :custom-sort="customSort"
-                        sort-by="date"
-                >
-                    <template #no-data>
-                        <div class="text-center">empty</div>
-                    </template>
+            <v-data-table
+                :headers="headers"
+                :options="options"
+                :items="events"
+                item-key="date"
+                hide-default-footer
+                hide-default-header
+                disable-pagination
+                class="minievent-table miniConsole"
+                :custom-sort="customSort"
+                sort-by="date"
+            >
+                <template #no-data>
+                    <div class="py-2">empty</div>
+                </template>
 
-                    <template #item="{ item }">
-                        <tr>
-                            <td class="log-cell title-cell">
-                                {{ item.date.toLocaleString() }}
-                            </td>
-                            <td class="log-cell content-cell" colspan="2">
-                                <span v-if="item.message" class="message" v-html="formatMessage(item.message)"></span>
-                            </td>
-                        </tr>
-                    </template>
-                </v-data-table>
+                <template #item="{ item }">
+                    <tr>
+                        <td class="log-cell title-cell py-2">
+                            {{ formatTime(item.date)}}
+                        </td>
+                        <td class="log-cell content-cell pl-0 py-2" colspan="2" style="width:100%;">
+                            <span v-if="item.message" class="message" v-html="formatMessage(item.message)"></span>
+                        </td>
+                    </tr>
+                </template>
+            </v-data-table>
         </v-card-text>
     </v-card>
 </template>
@@ -77,11 +87,22 @@
         },
         computed: {
             ...mapState({
-                events: state => state.events,
+                events: state => state.server.events,
             })
         },
         methods: {
 
+            formatTime(date) {
+                let hours = date.getHours();
+                if (hours < 10) hours = "0"+hours.toString();
+                let minutes = date.getMinutes();
+                if (minutes < 10) minutes = "0"+minutes.toString();
+                let seconds = date.getSeconds();
+                if (seconds < 10) seconds = "0"+seconds.toString();
+
+
+                return hours+":"+minutes+":"+seconds;
+            },
             formatMessage(message) {
                 message = message.replace(/(?:\r\n|\r|\n)/g, '<br>');
 

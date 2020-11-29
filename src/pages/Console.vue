@@ -15,12 +15,15 @@
         margin-top: 5px;
     }
 
-    .log-cell {
-        padding: 16px !important;
-    }
-
     .log-cell.title-cell {
         vertical-align: top;
+        height: auto !important;
+    }
+
+    .log-cell.content-cell {
+        vertical-align: top;
+        min-height: auto;
+        height: auto !important;
     }
 </style>
 
@@ -68,10 +71,10 @@
 
                     <template #item="{ item }">
                         <tr>
-                            <td class="log-cell title-cell">
+                            <td class="log-cell title-cell py-2 flex-grow-0 pr-0">
                                 {{ item.date.toLocaleString() }}
                             </td>
-                            <td class="log-cell content-cell" colspan="2">
+                            <td class="log-cell content-cell py-2" colspan="2">
                                 <span v-if="item.message" class="message" v-html="formatMessage(item.message)"></span>
                             </td>
                         </tr>
@@ -117,8 +120,8 @@
         },
         computed: {
             ...mapState({
-                events: state => state.events,
-                helplist: state => state.helplist,
+                events: state => state.server.events,
+                helplist: state => state.printer.helplist,
                 loadings: state => state.loadings,
             }),
             ...mapGetters([
@@ -127,9 +130,9 @@
         },
         methods: {
             doSend() {
-                this.$store.commit('setLoading', { name: 'loadingSendGcode' });
-                this.$store.commit('addGcodeResponse', this.gcode);
-                Vue.prototype.$socket.sendObj('printer.gcode.script', { script: this.gcode }, "sendGcode");
+                //this.$store.commit('setLoading', { name: 'loadingSendGcode' });
+                this.$store.commit('server/addEvent', this.gcode);
+                Vue.prototype.$socket.sendObj('printer.gcode.script', { script: this.gcode }, "server/getGcodeRespond");
                 this.lastCommands.push(this.gcode);
                 this.gcode = "";
                 this.lastCommandNumber = null;
@@ -168,7 +171,7 @@
                             let output = "";
                             commands.forEach(command => output += "<b>"+command.command+":</b> "+command.description+"<br />");
 
-                            this.$store.commit('addGcodeResponse', output);
+                            this.$store.commit('server/addEvent', output);
                         }
                     }
                 }

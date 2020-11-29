@@ -6,26 +6,24 @@
 
 <template>
     <v-card>
-        <v-list-item>
-            <v-list-item-avatar color="grey"><v-icon dark>mdi-view-dashboard</v-icon></v-list-item-avatar>
-            <v-list-item-content>
-                <v-list-item-title class="headline">Dashboard</v-list-item-title>
-            </v-list-item-content>
-        </v-list-item>
-        <v-divider class="my-2"></v-divider>
-        <v-card-text class="px-0 pt-3 content">
+        <v-toolbar flat dense >
+            <v-toolbar-title>
+                <span class="subheading"><v-icon left>mdi-view-dashboard</v-icon>Dashbaord</span>
+            </v-toolbar-title>
+        </v-toolbar>
+        <v-card-text class="py-3">
             <v-row>
-                <v-col class="px-10 py-0">
+                <v-col class="py-0">
                     <v-switch v-model="boolShowWebcamOnDashboard" label="Webcam" class="settings_dashboard_switch mt-0"></v-switch>
                 </v-col>
             </v-row>
             <v-row>
-                <v-col class="px-10 py-0">
+                <v-col class="py-0">
                     <v-switch v-model="boolShowTempchartOnDashboard" label="Tempchart" class="settings_dashboard_switch mt-0"></v-switch>
                 </v-col>
             </v-row>
             <v-row>
-                <v-col class="px-10 py-0">
+                <v-col class="py-0">
                     <v-switch v-model="boolShowConsoleOnDashboard" label="Console" class="settings_dashboard_switch mt-0"></v-switch>
                 </v-col>
             </v-row>
@@ -49,7 +47,7 @@
                     return this.$store.state.gui.dashboard.boolWebcam;
                 },
                 set(status) {
-                    return this.$store.dispatch('setSettings', { gui: { dashboard: { boolWebcam: status } } });
+                    return this.$store.dispatch('gui/setSettings', { dashboard: { boolWebcam: status } });
                 }
             },
             boolShowTempchartOnDashboard: {
@@ -57,7 +55,7 @@
                     return this.$store.state.gui.dashboard.boolTempchart;
                 },
                 set(status) {
-                    return this.$store.dispatch('setSettings', { gui: { dashboard: { boolTempchart: status } } });
+                    return this.$store.dispatch('gui/setSettings', { dashboard: { boolTempchart: status } });
                 }
             },
             boolShowConsoleOnDashboard: {
@@ -65,7 +63,7 @@
                     return this.$store.state.gui.dashboard.boolConsole;
                 },
                 set(status) {
-                    return this.$store.dispatch('setSettings', { gui: { dashboard: { boolConsole: status } } });
+                    return this.$store.dispatch('gui/setSettings', { dashboard: { boolConsole: status } });
                 }
             },
         },

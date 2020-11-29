@@ -1,19 +1,26 @@
 <style>
     @import './assets/styles/fonts.css';
+    @import './assets/styles/toastr.css';
+
+    .button-min-width-auto {
+        min-width: auto !important;
+    }
+
+    #page-container {
+        max-width: 1400px;
+    }
 </style>
 
 <template>
     <v-app>
-        <vue-headful
-                :title="getTitle"
-        />
+        <vue-headful :title="getTitle" />
         <v-navigation-drawer
             class="sidebar-wrapper" persistent v-model="drawer" enable-resize-watcher fixed app
-            :src="require('./assets/bg-navi.jpg')"
+            :src="require('./assets/bg-navi.png')"
         >
             <div id="nav-header">
                 <img :src="require('./assets/logo.svg')" />
-                <v-toolbar-title>{{ printername != "" ? printername : hostname }}</v-toolbar-title>
+                <v-toolbar-title>{{ printername !== "" ? printername : hostname }}</v-toolbar-title>
             </div>
             <ul class="navi" :expand="$vuetify.breakpoint.mdAndUp">
                 <li v-for="(category, index) in routes" :key="index" :prepend-icon="category.icon"
@@ -48,17 +55,39 @@
             </ul>
         </v-navigation-drawer>
 
-        <v-app-bar app absolute
-                   elevate-on-scroll>
+        <v-app-bar app elevate-on-scroll>
             <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
             <v-spacer></v-spacer>
-            <!--<v-btn color="green" v-if="!isConnected" :loading="loadingEmergencyStop" @click="emergencyStop"><v-icon class="mr-2">mdi-refresh-circle</v-icon> reconnect</v-btn>-->
-            <v-btn color="error" v-if="isConnected" :loading="loadingEmergencyStop" @click="emergencyStop">Emergency Stop</v-btn>
+            <v-btn color="primary" class="mr-5 d-none d-sm-flex" v-if="isConnected && save_config_pending" :loading="loadings.includes['topbarSaveConfig']" @click="clickSaveConfig">SAVE CONFIG</v-btn>
+            <v-btn color="error" class="button-min-width-auto px-3" v-if="isConnected" :loading="loadings.includes['topbarEmergencyStop']" @click="clickEmergencyStop"><v-icon class="mr-sm-2">mdi-alert-circle-outline</v-icon><span class="d-none d-sm-flex">Emergency Stop</span></v-btn>
+            <v-menu bottom left :offset-y="true">
+                <template v-slot:activator="{ on, attrs }">
+                    <v-btn dark icon v-bind="attrs" v-on="on">
+                        <v-icon>mdi-dots-vertical</v-icon>
+                    </v-btn>
+                </template>
+
+                <v-list dense>
+                    <v-list-item link @click="doRestart()">
+                        <v-list-item-title><v-icon class="mr-3">mdi-sync</v-icon>Restart</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item link @click="doFirmwareRestart()">
+                        <v-list-item-title><v-icon class="mr-3">mdi-sync</v-icon>FW Restart</v-list-item-title>
+                    </v-list-item>
+                    <v-divider></v-divider>
+                    <v-list-item link @click="doHostReboot()">
+                        <v-list-item-title><v-icon class="mr-3">mdi-power</v-icon>Reboot Host</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item link @click="doHostShutdown()">
+                        <v-list-item-title><v-icon class="mr-3">mdi-power</v-icon>Shutdown Host</v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
         </v-app-bar>
 
         <v-main id="content">
             <v-scroll-y-transition>
-                <v-container fluid id="page-container" class="container">
+                <v-container fluid id="page-container" class="container px-sm-6 px-3 mx-auto">
                     <keep-alive>
                         <router-view></router-view>
                     </keep-alive>
@@ -66,7 +95,7 @@
             </v-scroll-y-transition>
         </v-main>
 
-        <v-dialog v-model="isConnecting"  persistent width="300">
+        <v-dialog v-model="overlayDisconnect" persistent width="300">
             <v-card color="primary" dark >
                 <v-card-text class="pt-2">
                     Connecting...
@@ -76,9 +105,8 @@
         </v-dialog>
 
         <v-footer app class="d-block">
-            <span>v0.2.2</span>
-            <span v-if="version"> - {{ version }}</span>
-            <span class="float-right">Made with <img src="/img/heart.png" height="15" title="love" alt="heard" /> by <a href="http://www.vorondesign.com/" target="_blank"><img src="/img/voron.png" height="15" title="VoronDesign" alt="Logo - VoronDesign" /></a></span>
+            <span>v{{ getVersion }}</span>
+            <span class="float-right d-none d-sm-inline" v-if="version">{{ version }}</span>
         </v-footer>
     </v-app>
 </template>
@@ -95,15 +123,14 @@ export default {
 
     },
     data: () => ({
+        overlayDisconnect: true,
         drawer: null,
         activeClass: 'active',
         routes: routes,
-        //is_ready: false,
         boolNaviHeightmap: false,
     }),
     created () {
         this.$vuetify.theme.dark = true;
-        //this.is_ready = (this.klippy_state === "ready") ? true : false;
         this.boolNaviHeightmap = (typeof(this.config.bed_mesh) !== "undefined");
     },
     computed: {
@@ -111,30 +138,58 @@ export default {
           return this.$route.fullPath;
         },
         ...mapState({
-            toolhead: state => state.printer.toolhead,
-            hostname: state => state.printer.hostname,
-            printername: state => state.gui.general.printername,
-            version: state => state.printer.software_version,
-            loadingEmergencyStop: state => state.socket.loadingEmergencyStop,
             isConnected: state => state.socket.isConnected,
-            isConnecting: state => !state.socket.isConnected,
+            hostname: state => state.printer.hostname,
+            version: state => state.printer.software_version,
+            klippy_state: state => state.server.klippy_state,
+            loadings: state => state.socket.loadings,
+
+            toolhead: state => state.printer.toolhead,
+            printername: state => state.gui.general.printername,
             virtual_sdcard: state => state.printer.virtual_sdcard,
             current_file: state => state.printer.print_stats.filename,
             boolNaviWebcam: state => state.gui.webcam.bool,
-            klippy_state: state => state.printer.webhooks.state,
             config: state => state.printer.configfile.config,
+            save_config_pending: state => state.printer.configfile.save_config_pending,
         }),
         ...mapGetters([
-            'getTitle'
-        ])
+            'getTitle',
+            'getVersion'
+        ]),
+        print_percent: {
+            get() {
+                return this.$store.getters["printer/getPrintPercent"];
+            }
+        }
     },
     methods: {
-        emergencyStop: function() {
-            this.$store.commit('setLoadingEmergencyStop', true);
-            this.$socket.sendObj('printer.emergency_stop', {}, 'setLoadingEmergencyStop');
+        clickEmergencyStop: function() {
+            this.$store.commit('socket/addLoading', { name: 'topbarEmergencyStop' });
+            this.$socket.sendObj('printer.emergency_stop', {}, 'socket/removeLoading',{ name: 'topbarEmergencyStop' });
+        },
+        clickSaveConfig: function() {
+            this.$store.commit('server/addEvent', "SAVE_CONFIG");
+            this.$store.commit('socket/addLoading', { name: 'topbarSaveConfig' });
+            this.$socket.sendObj('printer.gcode.script', { script: "SAVE_CONFIG" }, 'socket/removeLoading', { name: 'topbarSaveConfig' });
+        },
+        doRestart: function() {
+            this.$store.commit('server/addEvent', "RESTART");
+            this.$socket.sendObj('printer.gcode.script', { script: "RESTART" });
+        },
+        doFirmwareRestart: function() {
+            this.$store.commit('server/addEvent', "FIRMWARE_RESTART");
+            this.$socket.sendObj('printer.gcode.script', { script: "FIRMWARE_RESTART" });
+        },
+        doHostReboot: function() {
+            this.$socket.sendObj('machine.reboot', { });
+        },
+        doHostShutdown: function() {
+            this.$socket.sendObj('machine.shutdown', { });
         },
         drawFavicon(val) {
-            let favicon = document.getElementById('favicon');
+            let favicon16 = document.querySelector("link[rel*='icon'][sizes='16x16']")
+            let favicon32 = document.querySelector("link[rel*='icon'][sizes='32x32']")
+
             if (val > 0 && val < 100) {
                 let faviconSize = 64;
 
@@ -173,39 +228,44 @@ export default {
                 context.fillStyle = "#e41313";
                 context.fill();
 
-                favicon.href = canvas.toDataURL('image/png');
-            } else favicon.href = "/favicon.ico"
+                favicon16.href = canvas.toDataURL('image/png')
+                favicon32.href = canvas.toDataURL('image/png')
+            } else {
+                favicon16.href = "/img/icons/favicon-16x16.png"
+                favicon32.href = "/img/icons/favicon-32x32.png"
+            }
         }
     },
     watch: {
-        virtual_sdcard: {
-            deep: true,
-            handler: function(val) {
-                let progress = (val && val.progress) ? val.progress : 0;
-
-                this.drawFavicon(progress);
-            }
+        print_percent() {
+            this.drawFavicon(this.print_percent);
         },
         current_file: {
             handler: function(newVal) {
-                this.$socket.sendObj("server.files.metadata", { filename: newVal }, "getMetadataCurrentFile");
+                this.$socket.sendObj("server.files.metadata", { filename: newVal }, "files/getMetadataCurrentFile");
             }
         },
         config() {
             this.boolNaviHeightmap = (typeof(this.config.bed_mesh) !== "undefined");
+        },
+        isConnected(newVal) {
+            this.overlayDisconnect = !newVal;
         }
     },
 }
 </script>
 
 <style>
-    .sidebar-wrapper:before {
+    body {
+      background: #121212;
+    }
+    /*.sidebar-wrapper:before {
         position: absolute;
         content: ' ';
         top: 0; right: 0; bottom: 0; left: 0;
         background: #000;
-        opacity: .7;
-    }
+        opacity: .5;
+    }*/
 
     #nav-header {
         text-align: center;

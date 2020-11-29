@@ -17,48 +17,38 @@
 
 <template>
     <div>
-        <v-card v-if="fan">
+        <v-card v-if="this['printer/getFans'].length">
             <v-toolbar flat dense >
                 <v-toolbar-title>
-                    <span class="subheading"><v-icon :class="fan.speed > 0 ? 'mdi mdi-fan icon-rotate' : 'mdi mdi-fan'" left></v-icon>Tool Fan</span>
+                    <span class="subheading"><v-icon :class="'mdi mdi-fan '+(this['printer/getPartFanSpeed'] ? 'icon-rotate' : '')" left></v-icon>Fans</span>
                 </v-toolbar-title>
             </v-toolbar>
-
-            <v-card-text class="pb-0">
-                <tool-slider :target="fan.speed" :multi="100" command="M106" attribute-name="S" :attribute-scale="2.55" ></tool-slider>
-            </v-card-text>
+            <div v-for="(fan, index) of this['printer/getFans']" v-bind:key="index">
+                <v-divider v-if="index"></v-divider>
+                <fan-slider :name="fan.name" :type="fan.type" :target="fan.speed" :controllable="fan.controllable" :multi="100" class="py-0" ></fan-slider>
+            </div>
         </v-card>
         <v-card class="mt-6" v-if="['printing', 'paused'].includes(printer_state)">
             <v-toolbar flat dense >
                 <v-toolbar-title>
-                    <span class="subheading"><v-icon class="mdi mdi-timer" left></v-icon>Speed Factor</span>
+                    <span class="subheading"><v-icon class="mdi mdi-printer-3d" left></v-icon>Print Settings</span>
                 </v-toolbar-title>
             </v-toolbar>
-
-            <v-card-text class="pb-0">
-                <tool-slider :target="speed_factor" :max="200" :multi="100" command="M220" attribute-name="S" ></tool-slider>
-            </v-card-text>
-        </v-card>
-        <v-card class="mt-6" v-if="['printing', 'paused'].includes(printer_state)">
-            <v-toolbar flat dense >
-                <v-toolbar-title>
-                    <span class="subheading"><v-icon class="mdi mdi-texture" left></v-icon>Extrusion Factor</span>
-                </v-toolbar-title>
-            </v-toolbar>
-
-            <v-card-text class="pb-0">
-                <tool-slider :target="extrude_factor" :max="200" :multi="100" command="M221" attribute-name="S" ></tool-slider>
-            </v-card-text>
+            <tool-slider label="Speed factor" :target="speed_factor" :max="200" :multi="100" :step="5" command="M220" attribute-name="S" ></tool-slider>
+            <v-divider></v-divider>
+            <tool-slider label="Extrusion factor" :target="extrude_factor" :max="200" :multi="100" :step="1" command="M221" attribute-name="S" ></tool-slider>
         </v-card>
     </div>
 </template>
 
 <script>
-    import {mapGetters, mapState} from 'vuex'
+    import { mapState, mapGetters } from 'vuex'
+    import FanSlider from '../../inputs/FanSlider'
     import ToolSlider from '../../inputs/ToolSlider'
 
     export default {
         components: {
+            FanSlider,
             ToolSlider
         },
         data () {
@@ -73,18 +63,9 @@
                 printer_state: state => state.printer.print_stats.state,
             }),
             ...mapGetters([
-                'fan',
-                'is_printing'
-            ])
+                'printer/getFans',
+                'printer/getPartFanSpeed',
+            ]),
         },
-        methods: {
-
-        },
-        mounted () {
-
-        },
-        watch: {
-
-        }
     }
 </script>

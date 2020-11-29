@@ -7,30 +7,21 @@
         <v-row class="px-3">
             <v-col class="col-12 col-md-6">
                 <v-label>Feed amount in mm:</v-label>
-                <v-btn-toggle class="mt-2" no-gutters style="flex-wrap: nowrap; width: 100%;" >
-                    <v-btn @click="setFeedAmount(100)" cols="1" :class="(feedAmount === 100 ? 'v-btn--active' : '') + ' flex-grow-1'">100</v-btn>
-                    <v-btn @click="setFeedAmount(50)" cols="1" :class="(feedAmount === 50 ? 'v-btn--active' : '') + ' flex-grow-1'">50</v-btn>
-                    <v-btn @click="setFeedAmount(20)" cols="1" :class="(feedAmount === 20 ? 'v-btn--active' : '') + ' flex-grow-1'">20</v-btn>
-                    <v-btn @click="setFeedAmount(10)" cols="1" :class="(feedAmount === 10 ? 'v-btn--active' : '') + ' flex-grow-1'">10</v-btn>
-                    <v-btn @click="setFeedAmount(5)" cols="1" :class="(feedAmount === 5 ? 'v-btn--active' : '') + ' flex-grow-1'">5</v-btn>
-                    <v-btn @click="setFeedAmount(1)" cols="1" :class="(feedAmount === 1 ? 'v-btn--active' : '') + ' flex-grow-1'">1</v-btn>
+                <v-btn-toggle class="mt-2" dense no-gutters style="flex-wrap: nowrap; width: 100%;" >
+                    <v-btn v-for="amount in feedAmounts" v-bind:key="amount" @click="setFeedAmount(amount)" dense :class="(amount === feedAmount ? 'v-btn--active' : '') + ' btnMinWidthAuto flex-grow-1 px-0 _btnFeedrate'">{{ amount }}</v-btn>
                 </v-btn-toggle>
             </v-col>
             <v-col class="col-12 col-md-6">
                 <v-label>Feedrate in mm/s:</v-label>
-                <v-btn-toggle class="mt-2" no-gutters style="flex-wrap: nowrap; width: 100%;" >
-                    <v-btn @click="setFeedrate(100)" cols="1" :class="(feedrate === 60 ? 'v-btn--active' : '') + ' flex-grow-1'">60</v-btn>
-                    <v-btn @click="setFeedrate(50)" cols="1" :class="(feedrate === 30 ? 'v-btn--active' : '') + ' flex-grow-1'">30</v-btn>
-                    <v-btn @click="setFeedrate(20)" cols="1" :class="(feedrate === 15 ? 'v-btn--active' : '') + ' flex-grow-1'">15</v-btn>
-                    <v-btn @click="setFeedrate(10)" cols="1" :class="(feedrate === 5 ? 'v-btn--active' : '') + ' flex-grow-1'">5</v-btn>
-                    <v-btn @click="setFeedrate(1)" cols="1" :class="(feedrate === 1 ? 'v-btn--active' : '') + ' flex-grow-1'">1</v-btn>
+                <v-btn-toggle class="mt-2" dense no-gutters style="flex-wrap: nowrap; width: 100%;" >
+                    <v-btn v-for="rate in feedrates" v-bind:key="rate" @click="setFeedrate(rate)" dense :class="(feedrate === rate ? 'v-btn--active' : '') + ' btnMinWidthAuto flex-grow-1 px-0 _btnFeedrate'">{{ rate }}</v-btn>
                 </v-btn-toggle>
             </v-col>
         </v-row>
         <v-row class="px-3">
             <v-col class="col-12 text-center">
-                <v-btn @click="sendRetract()" class="mx-2" :loading="loadingRetract" :disabled="!(config !== undefined && config.extruder !== null && (config.extruder.min_extrude_temp < extruder.temperature || !config.extruder.min_extrude_temp))"><v-icon>mdi-arrow-up-bold</v-icon> Retract</v-btn>
-                <v-btn @click="sendDetract()" class="mx-2" :loading="loadingDetract" :disabled="!(config !== undefined && config.extruder !== null && (config.extruder.min_extrude_temp < extruder.temperature || !config.extruder.min_extrude_temp))"><v-icon>mdi-arrow-down-bold</v-icon> Extrude</v-btn>
+                <v-btn small @click="sendRetract()" class="mx-2" :loading="loadings.includes('btnRetract')" :disabled="!this['printer/getExtrudePossible']"><v-icon small class="mr-1">mdi-arrow-up-bold</v-icon> Retract</v-btn>
+                <v-btn small @click="sendDetract()" class="mx-2" :loading="loadings.includes('btnDetract')" :disabled="!this['printer/getExtrudePossible']"><v-icon small class="mr-1">mdi-arrow-down-bold</v-icon> Extrude</v-btn>
             </v-col>
         </v-row>
     </v-card>
@@ -46,22 +37,21 @@
         },
         data: function() {
             return {
-                feedAmount: 20,
+                feedAmount: 25,
                 feedrate: 5,
-                loadingRetract: false,
-                loadingDetract: false,
+                feedAmounts: [ 100, 25, 10, 5, 1 ],
+                feedrates: [ 60, 30, 15, 5, 1 ],
             }
         },
         computed: {
             ...mapState({
-                loadings: state => state.loadings,
+                loadings: state => state.socket.loadings,
                 printer_state: state => state.printer.print_stats.state,
                 extruder: state => state.printer.extruder,
                 config: state => state.printer.configfile.config
             }),
             ...mapGetters([
-                'getMacros',
-                'getCurrentExtruder',
+                'printer/getExtrudePossible',
             ]),
         },
         methods: {
@@ -73,21 +63,15 @@
             },
             sendRetract() {
                 let gcode = "M83\nG1 E-"+this.feedAmount+" F"+(this.feedrate * 60);
-                this.$store.commit('setLoading', { name: 'extruderRetract' });
-                this.$store.commit('addGcodeResponse', gcode);
-                Vue.prototype.$socket.sendObj('printer.gcode.script', { script: gcode }, "respondeExtruderRetract");
+                this.$store.commit('server/addEvent', gcode);
+                this.$store.commit('socket/addLoading', { name: 'btnRetract' });
+                Vue.prototype.$socket.sendObj('printer.gcode.script', { script: gcode }, "socket/removeLoading", { name: 'btnRetract' });
             },
             sendDetract() {
                 let gcode = "M83\nG1 E"+this.feedAmount+" F"+(this.feedrate * 60);
-                this.$store.commit('setLoading', { name: 'extruderDetract' });
-                this.$store.commit('addGcodeResponse', gcode);
-                Vue.prototype.$socket.sendObj('printer.gcode.script', { script: gcode }, "respondeExtruderDetract");
-            },
-        },
-        watch: {
-            loadings: function(loadings) {
-                this.loadingRetract = loadings.includes('extruderRetract');
-                this.loadingDetract = loadings.includes('extruderDetract');
+                this.$store.commit('server/addEvent', gcode);
+                this.$store.commit('socket/addLoading', { name: 'btnDetract' });
+                Vue.prototype.$socket.sendObj('printer.gcode.script', { script: gcode }, "socket/removeLoading", { name: 'btnDetract' });
             },
         }
     }
